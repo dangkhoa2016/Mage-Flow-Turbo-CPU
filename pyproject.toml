@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mage-flow-turbo-native-inference"
+version = "1.0.0"
+description = "Portable native inference stack for Mage-Flow-Turbo using stable-diffusion.cpp"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+mageflow-native = "mageflow_native.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["mageflow_native*", "integrations*"]
+
+[tool.setuptools.package-data]
+mageflow_native = ["py.typed"]
