@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.runtime/
+outputs/
+logs/
+evidence/
+*.gguf
+*.safetensors
+*.png
+*.tar.gz
+*.zip
+*.sha256
+
+# Kaggle/OpenCode host-only state; never product source.
+.kaggle-ssh/
+.opencode/
+.virtual_documents/
+guide.md
+setup.sh
