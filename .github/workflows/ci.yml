@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require finalized notebook repository origin
+        run: '! grep -q ''__MAGE_REPO_URL__'' notebooks/kaggle-cpu-production-demo.ipynb'
+      - name: Unit and contract tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Python syntax
+        run: python3 -m py_compile app/*.py scripts/*.py scripts/kaggle/*.py
+      - name: Shell syntax
+        run: 'for f in scripts/*.sh scripts/kaggle/*.sh; do [ -f "$f" ] && bash -n "$f"; done'
+      - name: Notebook JSON
+        run: python3 -m json.tool notebooks/kaggle-cpu-production-demo.ipynb >/dev/null
+      - name: Publication surface hygiene
+        run: python3 scripts/publication_surface_audit.py --root .
+      - name: No model weights in Git tree
+        run: |
+          if find . -type f             \( -name '*.gguf' -o -name '*.safetensors' -o -name '*.ckpt' -o -name '*.pt' -o -name '*.pth' -o -name '*.onnx' \)             -print -quit | grep -q .; then
+            echo 'Model/runtime weight file is forbidden in the source repository.' >&2
+            exit 1
+          fi
