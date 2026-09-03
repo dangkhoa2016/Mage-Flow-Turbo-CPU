@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a focused improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Project constraints
+      options:
+        - label: The proposal preserves the CPU/RAM-only default path or clearly scopes any exception.
+          required: true
+        - label: The proposal does not require committing model weights to Git.
+          required: true
