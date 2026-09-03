@@ -1,0 +1,34 @@
+name: Portable CPU Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/kaggle/build-portable-sd-cli.sh
+      - .github/workflows/portable-runtime.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build portable CPU-only sd-cli
+        run: bash scripts/kaggle/build-portable-sd-cli.sh
+      - name: Verify portable package
+        run: |
+          test -f .portable-sd-cli-build/stable-diffusion-cpp-6b3edaa-portable-cpu-runtime.tar.gz
+          test -f .portable-sd-cli-build/stable-diffusion-cpp-6b3edaa-portable-cpu-runtime.tar.gz.sha256
+          cd .portable-sd-cli-build
+          sha256sum -c stable-diffusion-cpp-6b3edaa-portable-cpu-runtime.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stable-diffusion-cpp-6b3edaa-portable-cpu-runtime
+          path: |
+            .portable-sd-cli-build/stable-diffusion-cpp-6b3edaa-portable-cpu-runtime.tar.gz
+            .portable-sd-cli-build/stable-diffusion-cpp-6b3edaa-portable-cpu-runtime.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14
