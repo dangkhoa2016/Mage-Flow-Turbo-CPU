@@ -24,7 +24,7 @@ jobs:
           test -f .portable-sd-cli-build/stable-diffusion-cpp-6b3edaa-portable-cpu-runtime.tar.gz.sha256
           cd .portable-sd-cli-build
           sha256sum -c stable-diffusion-cpp-6b3edaa-portable-cpu-runtime.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: stable-diffusion-cpp-6b3edaa-portable-cpu-runtime
           path: |
