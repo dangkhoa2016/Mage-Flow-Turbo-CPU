@@ -1,0 +1,42 @@
+name: Native Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-source-build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git ninja-build
+      - name: Verify runtime pin in constants
+        run: |
+          python3 - <<'PY'
+          from mageflow_native.constants import SDCPP_COMMIT, SDCPP_SHORT
+          assert SDCPP_SHORT in SDCPP_COMMIT
+          print(f"pin={SDCPP_COMMIT} short={SDCPP_SHORT}")
+          PY
+      - name: Build pinned CPU-only runtime
+        run: |
+          python3 -m mageflow_native.runtime.build_smoke
+      - name: Verify runtime identity (CPU)
+        run: |
+          SD_CLI="$(python3 - <<'PY'
+          from mageflow_native.config import default_runtime_root
+          from mageflow_native.runtime.manager import RuntimeManager
+          print(RuntimeManager(default_runtime_root()).resolve())
+          PY
+          )"
+          "$SD_CLI" --version
+          "$SD_CLI" --list-devices
