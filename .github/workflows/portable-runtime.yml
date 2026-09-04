@@ -15,7 +15,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build portable CPU-only sd-cli
         run: bash scripts/kaggle/build-portable-sd-cli.sh
       - name: Verify portable package
