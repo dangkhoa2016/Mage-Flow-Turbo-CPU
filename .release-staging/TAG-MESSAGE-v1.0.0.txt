@@ -1,0 +1,18 @@
+Mage-Flow-Turbo-Native-Inference v1.0.0
+
+First public release.
+
+Qualified source:
+b9042c743aa925042349af3cf6fcf37dc455af6e
+
+Qualification:
+- Linux x86-64 CPU: PASS
+- NVIDIA CUDA cuda0 on Tesla T4: PASS
+- Kaggle CPU adapter: PASS
+- Kaggle T4/T4x2 physical GPU0 / logical cuda0 adapter: PASS
+
+Native runtime:
+- stable-diffusion.cpp 6b3edaaf32cc19e5bb2d819c788bd557eddc8eba
+- ggml e20c3a14aa70ee84ca58499814206dd08d8026bc
+
+Release evidence is attached to the GitHub Release with SHA-256 checksums.
