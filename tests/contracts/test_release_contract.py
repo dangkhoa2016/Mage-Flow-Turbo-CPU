@@ -1,6 +1,12 @@
 from pathlib import Path
 
+from scripts.publication.audit_release_contract import audit_release_contract
+
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_release_contract_has_no_errors():
+    assert audit_release_contract(ROOT) == []
 
 
 def test_public_docs_have_no_pending_release_wording():
@@ -9,6 +15,9 @@ def test_public_docs_have_no_pending_release_wording():
         "pending publication",
         "planned first public release",
         "not yet released",
+        "đang chờ qualification",
+        "đang chờ publish",
+        "bản phát hành công khai đầu tiên dự kiến",
     )
     paths = (
         ROOT / "README.md",
