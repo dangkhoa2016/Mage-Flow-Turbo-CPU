@@ -8,7 +8,9 @@ Mage-Flow-Turbo-Native-Inference là **bộ công cụ suy luận và triển kh
 
 v1.0.0 là bản phát hành công khai đầu tiên của dòng này.
 
-## Release target đã qualification
+## Mục tiêu qualification của release
+
+Các target dưới đây bắt buộc phải vượt qua exact-head qualification trước khi GitHub Release v1.0.0 được phát hành:
 
 - **Linux x86-64 CPU** — canonical native CPU target.
 - **NVIDIA CUDA `cuda0`** — canonical single-GPU CUDA target.
@@ -43,6 +45,6 @@ threads               = 4
 
 ## Evidence và provenance
 
-Artifact qualification CPU/CUDA exact-head được phát hành dưới dạng GitHub Release assets. Bộ asset gồm evidence archive và sidecar, notebook đã chạy, PNG acceptance, release provenance và `SHA256SUMS` bao phủ mọi custom release asset. Không có model weights.
+Sau khi toàn bộ exact-head gate bắt buộc PASS, artifact qualification CPU/CUDA được phát hành dưới dạng GitHub Release assets. Bộ asset gồm evidence archive và sidecar, notebook đã chạy, PNG acceptance, release provenance và `SHA256SUMS` bao phủ mọi custom release asset. Không có model weights.
 
-Wall time, peak RAM/VRAM, runtime binary SHA-256, acceptance PNG hash và GitHub Actions run ID được ghi trong release assets và GitHub Release body thay vì source documentation cần thay đổi sau qualification.
+Wall time, peak RAM/VRAM, runtime binary SHA-256, acceptance PNG hash, kết quả PASS/FAIL và GitHub Actions run ID được ghi trong release assets và GitHub Release body thay vì source documentation cần thay đổi sau qualification.
