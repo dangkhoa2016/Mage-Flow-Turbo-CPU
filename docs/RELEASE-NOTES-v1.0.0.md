@@ -11,7 +11,9 @@ Mage-Flow-Turbo-Native-Inference is a **portable native inference and deployment
 
 v1.0.0 is the first public release of this lineage.
 
-## Qualified release targets
+## Release qualification targets
+
+The following targets are required to pass exact-head qualification before the v1.0.0 GitHub Release is published:
 
 - **Linux x86-64 CPU** — canonical native CPU target.
 - **NVIDIA CUDA `cuda0`** — canonical single-GPU CUDA target.
@@ -46,6 +48,6 @@ threads               = 4
 
 ## Evidence and provenance
 
-Exact-head CPU/CUDA qualification artifacts are published as GitHub Release assets. They include evidence archives and sidecars, executed notebooks, acceptance PNGs, release provenance and a `SHA256SUMS` file covering every custom release asset. No model weights are included.
+After all required exact-head gates pass, CPU/CUDA qualification artifacts are published as GitHub Release assets. They include evidence archives and sidecars, executed notebooks, acceptance PNGs, release provenance and a `SHA256SUMS` file covering every custom release asset. No model weights are included.
 
-Measured wall times, peak RAM/VRAM, runtime binary SHA-256 values, acceptance PNG hashes and GitHub Actions run IDs are intentionally recorded in release assets and the GitHub Release body rather than in mutable source documentation.
+Measured wall times, peak RAM/VRAM, runtime binary SHA-256 values, acceptance PNG hashes, PASS/FAIL results and GitHub Actions run IDs are intentionally recorded in release assets and the GitHub Release body rather than in mutable source documentation.
