@@ -1,3 +1,4 @@
+# Temporary publication controller; excluded from the final public tree.
 name: Rebuild v1.0.0 Publication
 
 on:
@@ -173,7 +174,6 @@ jobs:
         id: dispatch
         run: |
           set -euo pipefail
-          DISPATCH_AFTER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           gh workflow run ci.yml --repo "$REPO" --ref main
           gh workflow run native-runtime.yml --repo "$REPO" --ref main
           sleep 8
