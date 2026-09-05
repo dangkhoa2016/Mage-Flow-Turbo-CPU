@@ -31,18 +31,18 @@ Frozen SHA-256 identities are enforced before real inference. The repository con
 
 ## v1.0.0 qualification scope
 
-The first public release is qualified against one exact Git source head and one frozen model/runtime contract. Release targets are:
+v1.0.0 uses one exact Git source head and one frozen model/runtime contract. The required release qualification targets are:
 
-| Environment | Backend | Release scope |
+| Environment | Backend | Qualification role |
 |---|---|---|
-| Linux x86-64 | CPU | qualified release target |
-| Linux + NVIDIA GPU | CUDA `cuda0` | qualified release target |
-| Kaggle CPU notebook | CPU adapter | qualified integration target |
-| Kaggle T4/T4x2 notebook | CUDA adapter `cuda0` on physical GPU 0 | qualified integration target |
+| Linux x86-64 | CPU | required release target |
+| Linux + NVIDIA GPU | CUDA `cuda0` | required release target |
+| Kaggle CPU notebook | CPU adapter | required integration target |
+| Kaggle T4/T4x2 notebook | CUDA adapter `cuda0` on physical GPU 0 | required integration target |
 
 Multi-GPU inference, Vulkan, Metal, ROCm, SYCL, Windows and other backends are not v1.0.0 release qualification targets.
 
-Final exact-head qualification evidence, measured wall times, RAM/VRAM telemetry, runtime binary hashes, acceptance PNG hashes, executed notebooks, release provenance and SHA-256 checksums are published with the GitHub Release rather than embedded as mutable source-tree state.
+Final PASS/FAIL results and exact-head qualification evidence, including measured wall times, RAM/VRAM telemetry, runtime binary hashes, acceptance PNG hashes, executed notebooks, release provenance and SHA-256 checksums, are published with the GitHub Release rather than embedded as mutable source-tree state.
 
 ## Why native inference?
 
