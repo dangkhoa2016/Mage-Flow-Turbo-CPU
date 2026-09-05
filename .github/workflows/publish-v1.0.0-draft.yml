@@ -1,0 +1,145 @@
+name: Publish v1.0.0 Draft
+
+on:
+  push:
+    branches:
+      - release/v1.0.0-publish-staging
+    paths:
+      - '.github/workflows/publish-v1.0.0-draft.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  publish-draft:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      EXPECTED_HEAD: b9042c743aa925042349af3cf6fcf37dc455af6e
+      TAG: v1.0.0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify frozen public main
+        shell: bash
+        run: |
+          set -euo pipefail
+          live_main="$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')"
+          test "$live_main" = "$EXPECTED_HEAD"
+          echo "LIVE_MAIN=$live_main"
+          echo "FROZEN_MAIN_GATE=PASS"
+
+      - name: Remove any previous first-publication tag and release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release delete "$TAG" --repo "$REPO" --yes
+          fi
+          if gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            gh api -X DELETE "repos/$REPO/git/refs/tags/$TAG"
+          fi
+          ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1
+          ! gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1
+          echo "OLD_PUBLICATION_REMOVED=PASS"
+
+      - name: Create annotated v1.0.0 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          message="$(cat .release-staging/TAG-MESSAGE-v1.0.0.txt)"
+          tag_object_sha="$(gh api -X POST "repos/$REPO/git/tags" \
+            -f tag="$TAG" \
+            -f message="$message" \
+            -f object="$EXPECTED_HEAD" \
+            -f type=commit \
+            -f 'tagger[name]=Đăng Khoa' \
+            -f 'tagger[email]=i.am@dangkhoa.dev' \
+            --jq '.sha')"
+          gh api -X POST "repos/$REPO/git/refs" \
+            -f ref="refs/tags/$TAG" \
+            -f sha="$tag_object_sha" >/dev/null
+          ref_type="$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq '.object.type')"
+          test "$ref_type" = tag
+          peeled="$(gh api "repos/$REPO/git/tags/$tag_object_sha" --jq '.object.sha')"
+          test "$peeled" = "$EXPECTED_HEAD"
+          echo "TAG_OBJECT_SHA=$tag_object_sha" >> "$GITHUB_ENV"
+          echo "TAG_ANNOTATED=PASS"
+          echo "TAG_PEELED_TARGET=$peeled"
+
+      - name: Dispatch exact-tag CI and Native Runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          start_iso="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "TAG_DISPATCH_START=$start_iso" >> "$GITHUB_ENV"
+          gh workflow run ci.yml --repo "$REPO" --ref "$TAG"
+          gh workflow run native-runtime.yml --repo "$REPO" --ref "$TAG"
+          echo "TAG_WORKFLOWS_DISPATCHED=PASS"
+
+      - name: Resolve and wait for exact-tag workflow runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          find_run() {
+            local workflow="$1"
+            local id=""
+            for _ in $(seq 1 60); do
+              id="$(gh api "repos/$REPO/actions/workflows/$workflow/runs?event=workflow_dispatch&per_page=30" \
+                --jq ".workflow_runs[] | select(.head_sha == \"$EXPECTED_HEAD\" and .head_branch == \"$TAG\" and .created_at >= \"$TAG_DISPATCH_START\") | .id" \
+                | head -n1)"
+              if [ -n "$id" ]; then
+                printf '%s\n' "$id"
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+          ci_id="$(find_run ci.yml)"
+          native_id="$(find_run native-runtime.yml)"
+          echo "CI_TAG_RUN_ID=$ci_id" >> "$GITHUB_ENV"
+          echo "NATIVE_TAG_RUN_ID=$native_id" >> "$GITHUB_ENV"
+          gh run watch "$ci_id" --repo "$REPO" --exit-status
+          gh run watch "$native_id" --repo "$REPO" --exit-status
+          test "$(gh run view "$ci_id" --repo "$REPO" --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view "$native_id" --repo "$REPO" --json conclusion --jq '.conclusion')" = success
+          test "$(gh run view "$ci_id" --repo "$REPO" --json headSha --jq '.headSha')" = "$EXPECTED_HEAD"
+          test "$(gh run view "$native_id" --repo "$REPO" --json headSha --jq '.headSha')" = "$EXPECTED_HEAD"
+          echo "CI_TAG=PASS"
+          echo "NATIVE_RUNTIME_TAG=PASS"
+
+      - name: Create final bilingual draft release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .release-staging/RELEASE-NOTES-TEMPLATE.md RELEASE-NOTES-v1.0.0.md
+          sed -i "s/__CI_TAG_RUN_ID__/$CI_TAG_RUN_ID/g" RELEASE-NOTES-v1.0.0.md
+          sed -i "s/__NATIVE_TAG_RUN_ID__/$NATIVE_TAG_RUN_ID/g" RELEASE-NOTES-v1.0.0.md
+          ! grep -q '__CI_TAG_RUN_ID__\|__NATIVE_TAG_RUN_ID__' RELEASE-NOTES-v1.0.0.md
+          cp .release-staging/TAG-MESSAGE-v1.0.0.txt TAG-MESSAGE-v1.0.0.txt
+          echo "RELEASE_NOTES_FINALIZED=PASS"
+
+      - name: Create draft GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            --repo "$REPO" \
+            --draft \
+            --verify-tag \
+            --target "$EXPECTED_HEAD" \
+            --title 'Mage-Flow-Turbo-Native-Inference v1.0.0' \
+            --notes-file RELEASE-NOTES-v1.0.0.md \
+            TAG-MESSAGE-v1.0.0.txt \
+            RELEASE-NOTES-v1.0.0.md
+          release_id="$(gh api "repos/$REPO/releases" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1)"
+          test -n "$release_id"
+          test "$(gh api "repos/$REPO/releases/$release_id" --jq '.draft')" = true
+          echo "DRAFT_RELEASE_ID=$release_id"
+          echo "DRAFT_RELEASE_CREATED=PASS"
