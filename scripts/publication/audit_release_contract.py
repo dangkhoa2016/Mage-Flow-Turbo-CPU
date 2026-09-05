@@ -27,6 +27,11 @@ FORBIDDEN_WORDING = [
     "đang chờ qualification",
     "đang chờ publish",
     "bản phát hành công khai đầu tiên dự kiến",
+    "qualified release target",
+    "qualified integration target",
+    "qualified release targets",
+    "release target đã qualification",
+    "integration target đã qualification",
 ]
 
 
@@ -48,7 +53,7 @@ def audit_release_contract(root: Path) -> list[str]:
     public_text = "\n".join(_text(root, rel).lower() for rel in REQUIRED_DOCS)
     for needle in FORBIDDEN_WORDING:
         if needle in public_text:
-            errors.append(f"stale release wording remains: {needle}")
+            errors.append(f"stale or premature release wording remains: {needle}")
 
     pyproject = _text(root, "pyproject.toml")
     if f'version = "{EXPECTED_VERSION}"' not in pyproject:
