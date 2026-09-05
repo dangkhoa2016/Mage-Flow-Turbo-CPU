@@ -31,18 +31,18 @@ SHA-256 đông cứng được kiểm tra trước suy luận thật. Repository
 
 ## Phạm vi qualification v1.0.0
 
-Bản public đầu tiên được qualification trên đúng một Git source head và một hợp đồng model/runtime đã đông cứng. Các release target gồm:
+v1.0.0 sử dụng đúng một Git source head và một hợp đồng model/runtime đã đông cứng. Các mục tiêu qualification bắt buộc gồm:
 
-| Môi trường | Backend | Phạm vi release |
+| Môi trường | Backend | Vai trò qualification |
 |---|---|---|
-| Linux x86-64 | CPU | release target đã qualification |
-| Linux + NVIDIA GPU | CUDA `cuda0` | release target đã qualification |
-| Notebook Kaggle CPU | CPU adapter | integration target đã qualification |
-| Notebook Kaggle T4/T4x2 | CUDA adapter `cuda0` trên physical GPU 0 | integration target đã qualification |
+| Linux x86-64 | CPU | release target bắt buộc |
+| Linux + NVIDIA GPU | CUDA `cuda0` | release target bắt buộc |
+| Notebook Kaggle CPU | CPU adapter | integration target bắt buộc |
+| Notebook Kaggle T4/T4x2 | CUDA adapter `cuda0` trên physical GPU 0 | integration target bắt buộc |
 
 Multi-GPU, Vulkan, Metal, ROCm, SYCL, Windows và các backend khác không nằm trong mục tiêu qualification của v1.0.0.
 
-Evidence exact-head cuối, thời gian đo, telemetry RAM/VRAM, hash runtime binary, hash PNG acceptance, notebook đã chạy, release provenance và SHA-256 checksum được phát hành cùng GitHub Release thay vì lưu như trạng thái động trong source tree.
+Kết quả PASS/FAIL cuối và evidence exact-head, bao gồm thời gian đo, telemetry RAM/VRAM, hash runtime binary, hash PNG acceptance, notebook đã chạy, release provenance và SHA-256 checksum, được phát hành cùng GitHub Release thay vì lưu như trạng thái động trong source tree.
 
 ## Vì sao dùng native inference?
 
