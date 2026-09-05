@@ -1,133 +1,108 @@
 # Mage-Flow-Turbo-Native-Inference
 
 [![CI](https://github.com/dangkhoa2016/Mage-Flow-Turbo-Native-Inference/actions/workflows/ci.yml/badge.svg)](https://github.com/dangkhoa2016/Mage-Flow-Turbo-Native-Inference/actions/workflows/ci.yml)
+[![Native Runtime](https://github.com/dangkhoa2016/Mage-Flow-Turbo-Native-Inference/actions/workflows/native-runtime.yml/badge.svg)](https://github.com/dangkhoa2016/Mage-Flow-Turbo-Native-Inference/actions/workflows/native-runtime.yml)
+[![Release](https://img.shields.io/github/v/release/dangkhoa2016/Mage-Flow-Turbo-Native-Inference)](https://github.com/dangkhoa2016/Mage-Flow-Turbo-Native-Inference/releases/tag/v1.0.0)
 [![License](https://img.shields.io/github/license/dangkhoa2016/Mage-Flow-Turbo-Native-Inference)](LICENSE)
-![Linux CPU](https://img.shields.io/badge/Linux%20CPU-qualification%20pending-yellow)
-![NVIDIA CUDA](https://img.shields.io/badge/NVIDIA%20CUDA-qualification%20pending-yellow)
-![Kaggle](https://img.shields.io/badge/Kaggle-adapter%2Freference-20BEFF?logo=kaggle&logoColor=white)
 
 > 🌐 Language / Ngôn ngữ: **English** | [Tiếng Việt](README.vi.md)
 
-A **portable native inference and deployment stack for Mage-Flow-Turbo**. This is not a new model and it does not train or fine-tune anything. Python provides configuration, validation, CLI/REST orchestration, lifecycle control and evidence collection; the actual model inference is executed by the native `stable-diffusion.cpp` `sd-cli` runtime.
-
-**What actually runs:**
+A **portable native inference and deployment stack for Mage-Flow-Turbo**. This repository does not define a new model and does not train or fine-tune model weights. Python provides configuration, validation, CLI/REST orchestration, lifecycle control and evidence collection; model inference itself is executed by the native `stable-diffusion.cpp` `sd-cli` runtime.
 
 ```text
-manifest → SHA-256 verification → runtime manager (sd-cli)
-        → Mage-Flow-Turbo DiT (Q8_0) with Qwen3-VL-4B text encoder and dedicated VAE
-        → Linux CPU or NVIDIA CUDA (cuda0)
-        → PNG artifact
+manifest → SHA-256 verification → pinned sd-cli runtime
+        → Mage-Flow-Turbo DiT Q8_0
+        → Qwen3-VL-4B text encoder Q4_K_M
+        → dedicated VAE
+        → Linux CPU or NVIDIA CUDA cuda0
+        → PNG artifact + structured evidence
 ```
 
-## Exact model stack
+## Exact reference stack
 
-| Role | Exact artifact | Format / quantization | Reference source |
-|---|---|---|---|
-| Diffusion model | `Mage-Flow-Turbo-DiT-Q8_0.gguf` | GGUF Q8_0 | `mage-flow-community-mage-flow-turbo/gguf/q8-0` |
-| Text encoder / LLM | `Qwen3VL-4B-Instruct-Q4_K_M.gguf` | GGUF Q4_K_M | `qwen-qwen3-vl-4b-instruct-gguf/gguf/q4-k-m` |
-| VAE | `diffusion_pytorch_model.safetensors` | SafeTensors | `mage-flow-community-mage-flow-turbo/pytorch/vae-only` |
-| Native engine | `stable-diffusion.cpp` `sd-cli` | C/C++ native | pinned commit `6b3edaaf32cc19e5bb2d819c788bd557eddc8eba` |
+| Role | Exact artifact | Format / quantization |
+|---|---|---|
+| Diffusion model | `Mage-Flow-Turbo-DiT-Q8_0.gguf` | GGUF Q8_0 |
+| Text encoder | `Qwen3VL-4B-Instruct-Q4_K_M.gguf` | GGUF Q4_K_M |
+| VAE | `diffusion_pytorch_model.safetensors` | SafeTensors |
+| Native runtime | `stable-diffusion.cpp` `sd-cli` | pinned commit `6b3edaaf32cc19e5bb2d819c788bd557eddc8eba` |
 
-All three model components are required. Frozen SHA-256 identities and the pinned runtime are verified before any real inference. **Python is orchestration, not the denoising engine** — there is no PyTorch/Transformers inference loop.
+Frozen SHA-256 identities are enforced before real inference. The repository contains no model weights.
 
-## Why this project exists
+## v1.0.0 qualification scope
 
-The community value is a reproducible answer to a deployment problem:
+v1.0.0 uses one exact Git source head and one frozen model/runtime contract. The required release qualification targets are:
 
-- which Mage-Flow-Turbo components must be loaded;
-- which quantizations are known-good;
-- how the DiT, text encoder and VAE wire into `stable-diffusion.cpp`;
-- how to verify exact model identities before inference;
-- how to run the same stack on CPU or NVIDIA CUDA without a PyTorch inference loop;
-- how to expose it through a local CLI and REST API;
-- how to collect reproducible runtime/evidence data;
-- how to adapt the same generic core to Kaggle without embedding Kaggle assumptions into the core.
+| Environment | Backend | Qualification role |
+|---|---|---|
+| Linux x86-64 | CPU | required release target |
+| Linux + NVIDIA GPU | CUDA `cuda0` | required release target |
+| Kaggle CPU notebook | CPU adapter | required integration target |
+| Kaggle T4/T4x2 notebook | CUDA adapter `cuda0` on physical GPU 0 | required integration target |
 
-## Platform support & qualification status
+Multi-GPU inference, Vulkan, Metal, ROCm, SYCL, Windows and other backends are not v1.0.0 release qualification targets.
 
-| Environment | Backend | v1.0.0 status |
-|---|---|---:|
-| Linux x86-64 | CPU | Qualification pending |
-| Linux + NVIDIA GPU | CUDA (`cuda0`) | Qualification pending |
-| Kaggle CPU notebook | CPU adapter | Qualification pending |
-| Kaggle T4/T4x2 notebook | CUDA adapter (`cuda0`) | Qualification pending |
-| CUDA multi-GPU | `cuda0&cuda1` | Experimental / not a release gate |
-| Vulkan / Metal / ROCm / SYCL / Windows | GPU | Planned / not a release target for v1.0.0 |
+Final PASS/FAIL results and exact-head qualification evidence, including measured wall times, RAM/VRAM telemetry, runtime binary hashes, acceptance PNG hashes, executed notebooks, release provenance and SHA-256 checksums, are published with the GitHub Release rather than embedded as mutable source-tree state.
 
-## Why no PyTorch?
+## Why native inference?
 
-The diffusion step, text conditioning and VAE decoding are all executed by the native `sd-cli` runtime. Python only validates configuration and models, builds the explicit subprocess argv (`shell=False`), monitors the process, and collects evidence.
+The diffusion step, text conditioning and VAE decoding are executed by `sd-cli`; there is no PyTorch/Transformers inference loop in the project. Python validates model identity, builds explicit subprocess arguments with `shell=False`, monitors the native process and records evidence.
 
-## Model loading and SHA verification
+## Verify the model stack
 
-Model files are **user-supplied or mounted**; the repository does not commit model weights. Loading uses a JSON model manifest:
+Model files are user-supplied or mounted. Loading uses a JSON model manifest and fails closed when a required component is missing, ambiguous or hash-mismatched.
 
 ```bash
 mageflow-native verify --manifest configs/mage-flow-turbo-q8-reference.json
 ```
 
-Every canonical component is SHA-256 verified before a real inference service starts. A missing or ambiguous component **fails closed**. Explicit paths override discovery.
+## Linux CPU quick start
 
-## Local Linux quick start
-
-Prerequisites: Linux, Python 3.10+, CMake, a C/C++ toolchain.
+Prerequisites: Linux, Python 3.10+, CMake and a C/C++ toolchain.
 
 ```bash
 python -m pip install -e .
-mageflow-native runtime build --backend cpu      # build the pinned CPU sd-cli
+mageflow-native runtime build --backend cpu
 mageflow-native doctor --manifest configs/mage-flow-turbo-q8-reference.json
 mageflow-native verify --manifest configs/mage-flow-turbo-q8-reference.json
 mageflow-native generate \
-    --manifest configs/mage-flow-turbo-q8-reference.json \
-    --prompt "A small red fox sitting in a quiet green forest" --output output
+  --manifest configs/mage-flow-turbo-q8-reference.json \
+  --prompt "A small red fox sitting in a quiet green forest" \
+  --output output
 ```
-
-Provide the three model files at the manifest paths (or set `MAGE_MODEL_ROOT`), or point `--manifest`/`--model-root` at your own layout.
 
 ## NVIDIA CUDA quick start
 
-Prerequisites: an NVIDIA GPU, CUDA toolkit, CMake, a C/C++ toolchain.
+Prerequisites: an NVIDIA GPU, CUDA toolkit, CMake and a C/C++ toolchain.
 
 ```bash
 python -m pip install -e .
-mageflow-native runtime build --backend cuda      # deterministic CUDA build of the pinned source
-mageflow-native doctor --manifest configs/mage-flow-turbo-q8-reference.json --backend cuda0
-mageflow-native generate --manifest configs/mage-flow-turbo-q8-reference.json \
-    --backend cuda0 --prompt "A small red fox" --output output
+mageflow-native runtime build --backend cuda
+mageflow-native doctor \
+  --manifest configs/mage-flow-turbo-q8-reference.json \
+  --backend cuda0
+mageflow-native generate \
+  --manifest configs/mage-flow-turbo-q8-reference.json \
+  --backend cuda0 \
+  --prompt "A small red fox" \
+  --output output
 ```
 
-Qualification uses explicit deterministic placement (`cpu` or `cuda0`), never `auto` or `--auto-fit`.
-
-## Backend placement / low-VRAM examples
-
-The pinned runtime supports separate runtime and parameter placement as well as per-module assignments. For example on a low-VRAM T4:
-
-```bash
-mageflow-native generate --manifest MODEL.json --output output \
-    --backend "diffusion=cuda0,te=cpu,vae=cpu" \
-    --params-backend "diffusion=cuda0,te=cpu,vae=cpu" \
-    --max-vram 4G
-```
-
-Multi-GPU, Vulkan, Metal, ROCm and SYCL are documented upstream features but are **not v1.0.0 qualification targets**.
-
-## Kaggle integration
-
-Kaggle is an **adapter/reference environment**, not a required runtime platform. Final live CPU/CUDA qualification for v1.0.0 is pending. Kaggle-specific behavior lives under `integrations/kaggle/` and only discovers mounted inputs and generates a generic manifest; the same generic core then runs on CPU or CUDA. See [docs/kaggle.md](docs/kaggle.md) and [notebooks/kaggle-production-demo.ipynb](notebooks/kaggle-production-demo.ipynb).
+Release qualification uses explicit deterministic placement (`cpu` or `cuda0`), never `auto` or `--auto-fit`.
 
 ## CLI
 
 ```text
-mageflow-native doctor                       show OS/arch, runtime, devices, backend, manifest
-mageflow-native verify                       verify runtime and model identities (no inference)
-mageflow-native generate [GENERATION]        one local generation
-mageflow-native serve                        start loopback REST service
+mageflow-native doctor
+mageflow-native verify
+mageflow-native generate
+mageflow-native serve
 mageflow-native runtime build --backend cpu|cuda
 ```
 
 ## REST API
 
-The loopback service binds to `127.0.0.1` by default.
+The reference service binds to `127.0.0.1` by default.
 
 ```text
 GET  /healthz
@@ -137,24 +112,30 @@ POST /v1/images/generate
 GET  /v1/artifacts/<png>
 ```
 
-See [docs/REST-API.md](docs/REST-API.md). Public exposure, if used, is a separate authenticated gateway and is not part of qualification.
+Public exposure, when desired, is a separate authenticated gateway concern and is outside release qualification.
 
-## Reproducibility / evidence
+## Kaggle integration
 
-The qualification harnesses record backend spec, runtime identity, model hashes, prompt/seed/steps/CFG/threads/resolution, exit code, wall time, peak RAM and (CUDA) GPU telemetry, PNG dimensions/mode/size/SHA, and the exact source Git head. Evidence is packaged sanitized. See [docs/TESTING.md](docs/TESTING.md) and [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+Kaggle is an adapter/reference environment rather than a hard dependency of the core. Kaggle-specific discovery lives under `integrations/kaggle/`; it maps mounted inputs into the generic manifest/runtime flow. See [docs/kaggle.md](docs/kaggle.md) and [notebooks/kaggle-production-demo.ipynb](notebooks/kaggle-production-demo.ipynb).
 
-## Canonical qualification request
+## Reproducibility and evidence
 
-The canonical qualification request produces one 512×512 PNG with seed 42, 4 steps, CFG 1.0, 4 threads and the canonical fox prompt. Final CPU and CUDA reference SHA-256 values are recorded only after the exact published source head passes the corresponding external qualification gate. CUDA output may legitimately differ in bytes from CPU output.
+Qualification records exact Git head, runtime provenance, model hashes, backend, prompt, seed, steps, CFG, thread count, resolution, exact argv, stdout/stderr, exit code, wall time, peak memory telemetry and PNG identity. Evidence archives are sanitized and clean-room verifiable.
 
-## Limitations
+Canonical release request:
 
-- No automatic model downloading in the core; users supply files.
-- Windows, macOS, AMD ROCm, Metal, Vulkan and Intel SYCL are **not** v1.0.0 qualification targets.
-- No training, fine-tuning or model conversion.
-- Only the frozen Q8_0 + Q4_K_M reference stack is in v1.0.0 qualification scope.
+```text
+prompt  = A small red fox sitting in a quiet green forest, natural light, detailed photography.
+size    = 512x512
+seed    = 42
+steps   = 4
+CFG     = 1.0
+threads = 4
+```
 
-## Documentation and contributing
+CPU and CUDA outputs may legitimately differ byte-for-byte across numerical backends.
+
+## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Model stack](docs/model-stack.md)
