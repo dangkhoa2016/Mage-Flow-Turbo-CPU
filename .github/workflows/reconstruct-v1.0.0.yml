@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       REPO: dangkhoa2016/Mage-Flow-Turbo-Native-Inference
-      STAGING_BRANCH: release/v1.0.0-staging
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
@@ -37,14 +36,12 @@ jobs:
         id: snapshot
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/pre-rebuild-snapshot"
           SNAP="$RUNNER_TEMP/pre-rebuild-snapshot"
-
+          mkdir -p "$SNAP"
           git fetch origin \
             '+refs/heads/main:refs/remotes/origin/main' \
             '+refs/heads/release/v1.0.0-staging:refs/remotes/origin/release/v1.0.0-staging' \
             '+refs/tags/*:refs/tags/*'
-
           OLD_MAIN="$(git rev-parse refs/remotes/origin/main)"
           STAGING_HEAD="$(git rev-parse HEAD)"
           printf '%s\n' "$OLD_MAIN" > "$SNAP/main-before.txt"
@@ -55,13 +52,11 @@ jobs:
           git ls-remote origin > "$SNAP/ls-remote-before.txt"
           gh api "repos/$REPO/releases/tags/v1.0.0" > "$SNAP/release-v1.0.0.json" || true
           gh api "repos/$REPO/git/ref/tags/v1.0.0" > "$SNAP/tag-v1.0.0.json" || true
-
           git bundle create "$SNAP/repository-before.bundle" \
             refs/remotes/origin/main \
             refs/remotes/origin/release/v1.0.0-staging \
             $(git for-each-ref --format='%(refname)' refs/tags)
           git bundle verify "$SNAP/repository-before.bundle"
-
           echo "old_main=$OLD_MAIN" >> "$GITHUB_OUTPUT"
           echo "staging_head=$STAGING_HEAD" >> "$GITHUB_OUTPUT"
 
@@ -72,7 +67,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Build clean public candidate
+      - name: Build single-hardening clean public candidate
         id: candidate
         run: |
           set -euo pipefail
@@ -80,7 +75,6 @@ jobs:
           rm -rf "$WORK"
           git clone --no-hardlinks "$GITHUB_WORKSPACE" "$WORK"
           cd "$WORK"
-
           git remote set-url origin "https://github.com/$REPO.git"
           gh auth setup-git
           git fetch origin \
@@ -91,17 +85,15 @@ jobs:
           STAGING_HEAD="$(git rev-parse refs/remotes/origin/release/v1.0.0-staging)"
           test "$OLD_MAIN" = "${{ steps.snapshot.outputs.old_main }}"
 
-          git checkout -B clean-public "$OLD_MAIN"
+          BASE_PUBLIC="$(git log refs/remotes/origin/main --reverse --format='%H%x09%s' | awk -F '\t' '$2 == "chore(release): harden v1.0.0 publication integrity" {print prev; exit} {prev=$1}')"
+          test -n "$BASE_PUBLIC"
+          test "$(git show -s --format=%s "$BASE_PUBLIC")" = 'docs(release): prepare Mage-Flow-Turbo-Native-Inference v1.0.0'
+          echo "base_public=$BASE_PUBLIC" >> "$GITHUB_OUTPUT"
 
-          FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --env-filter '
-            export GIT_AUTHOR_NAME="Đăng Khoa"
-            export GIT_AUTHOR_EMAIL="i.am@dangkhoa.dev"
-            export GIT_COMMITTER_NAME="Đăng Khoa"
-            export GIT_COMMITTER_EMAIL="i.am@dangkhoa.dev"
-            export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
-          ' -- clean-public
+          git checkout -B clean-public "$BASE_PUBLIC"
+          python scripts/publication/verify_history.py . --branch HEAD
 
-          git diff --binary "$OLD_MAIN" "$STAGING_HEAD" -- . \
+          git diff --binary "$BASE_PUBLIC" "$STAGING_HEAD" -- . \
             ':(exclude).github/workflows/reconstruct-v1.0.0.yml' \
             > "$RUNNER_TEMP/staging-final.patch"
           test -s "$RUNNER_TEMP/staging-final.patch"
@@ -115,6 +107,9 @@ jobs:
           export GIT_AUTHOR_DATE="$RELEASE_DATE"
           export GIT_COMMITTER_DATE="$RELEASE_DATE"
           git commit -m 'chore(release): harden v1.0.0 publication integrity'
+
+          HARDEN_COUNT="$(git log --format=%s | grep -Fxc 'chore(release): harden v1.0.0 publication integrity')"
+          test "$HARDEN_COUNT" = 1
 
           FINAL_HEAD="$(git rev-parse HEAD)"
           FINAL_TREE="$(git rev-parse HEAD^{tree})"
@@ -137,6 +132,7 @@ jobs:
           python scripts/publication/audit_public_surface.py --root .
           python scripts/publication/verify_history.py . --branch HEAD
           python scripts/publication/audit_release_contract.py
+          test "$(git log --format=%s | grep -Fxc 'chore(release): harden v1.0.0 publication integrity')" = 1
           if find . -type f \
               \( -name '*.gguf' -o -name '*.safetensors' -o -name '*.ckpt' -o -name '*.pt' -o -name '*.pth' -o -name '*.onnx' \) \
               -print -quit | grep -q .; then
@@ -152,7 +148,7 @@ jobs:
           test "$LIVE_MAIN" = "${{ steps.snapshot.outputs.old_main }}"
           echo 'REMOTE_LEASE_PRECHECK=PASS'
 
-      - name: Replace unseen first-publication release and main
+      - name: Replace unseen first-publication main
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/public-candidate"
@@ -160,12 +156,11 @@ jobs:
           git push origin :refs/tags/v1.0.0 || true
           git push origin clean-public:main \
             --force-with-lease=refs/heads/main:${{ steps.snapshot.outputs.old_main }}
-
           LIVE_MAIN="$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')"
           test "$LIVE_MAIN" = "${{ steps.candidate.outputs.final_head }}"
           test -z "$(git ls-remote --tags origin refs/tags/v1.0.0)"
           if gh release view v1.0.0 --repo "$REPO" >/dev/null 2>&1; then
-            echo 'Old v1.0.0 release still exists' >&2
+            echo 'v1.0.0 release unexpectedly exists' >&2
             exit 1
           fi
           echo 'PUBLIC_MAIN_REPLACEMENT=PASS'
@@ -177,9 +172,8 @@ jobs:
           gh workflow run ci.yml --repo "$REPO" --ref main
           gh workflow run native-runtime.yml --repo "$REPO" --ref main
           sleep 8
-
-          CI_RUN="$(gh run list --repo "$REPO" --workflow ci.yml --branch main --event workflow_dispatch --limit 10 --json databaseId,headSha,createdAt --jq '[.[] | select(.headSha == "${{ steps.candidate.outputs.final_head }}")][0].databaseId')"
-          NR_RUN="$(gh run list --repo "$REPO" --workflow native-runtime.yml --branch main --event workflow_dispatch --limit 10 --json databaseId,headSha,createdAt --jq '[.[] | select(.headSha == "${{ steps.candidate.outputs.final_head }}")][0].databaseId')"
+          CI_RUN="$(gh run list --repo "$REPO" --workflow ci.yml --branch main --event workflow_dispatch --limit 10 --json databaseId,headSha --jq '[.[] | select(.headSha == "${{ steps.candidate.outputs.final_head }}")][0].databaseId')"
+          NR_RUN="$(gh run list --repo "$REPO" --workflow native-runtime.yml --branch main --event workflow_dispatch --limit 10 --json databaseId,headSha --jq '[.[] | select(.headSha == "${{ steps.candidate.outputs.final_head }}")][0].databaseId')"
           test -n "$CI_RUN" -a "$CI_RUN" != "null"
           test -n "$NR_RUN" -a "$NR_RUN" != "null"
           echo "ci_run=$CI_RUN" >> "$GITHUB_OUTPUT"
@@ -190,7 +184,6 @@ jobs:
           set -euo pipefail
           gh run watch "${{ steps.dispatch.outputs.ci_run }}" --repo "$REPO" --exit-status
           gh run watch "${{ steps.dispatch.outputs.native_run }}" --repo "$REPO" --exit-status
-
           CI_HEAD="$(gh run view "${{ steps.dispatch.outputs.ci_run }}" --repo "$REPO" --json headSha --jq '.headSha')"
           NR_HEAD="$(gh run view "${{ steps.dispatch.outputs.native_run }}" --repo "$REPO" --json headSha --jq '.headSha')"
           test "$CI_HEAD" = "${{ steps.candidate.outputs.final_head }}"
@@ -207,6 +200,7 @@ jobs:
           cat > "$RUNNER_TEMP/rebuild-result/result.txt" <<EOF
           old_main=${{ steps.snapshot.outputs.old_main }}
           staging_head=${{ steps.snapshot.outputs.staging_head }}
+          base_public=${{ steps.candidate.outputs.base_public }}
           final_head=${{ steps.candidate.outputs.final_head }}
           final_tree=${{ steps.candidate.outputs.final_tree }}
           ci_main_run=${{ steps.dispatch.outputs.ci_run }}
